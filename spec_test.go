@@ -166,6 +166,56 @@ func TestNext(t *testing.T) {
 	}
 }
 
+func TestPrevious(t *testing.T) {
+	runs := []struct {
+		time, spec string
+		expected   string
+	}{
+		// Simple cases
+		{"Mon Jul 9 14:45 2012", "0/15 * * * *", "Mon Jul 9 14:30 2012"},
+		{"Mon Jul 9 14:59 2012", "0/15 * * * *", "Mon Jul 9 14:45 2012"},
+		{"Mon Jul 9 14:59:59 2012", "0/15 * * * *", "Mon Jul 9 14:45 2012"},
+
+		// Wrap around hours
+		{"Mon Jul 9 15:45 2012", "20-35/15 * * * *", "Mon Jul 9 15:35 2012"},
+
+		// Wrap around days
+		{"Mon Jul 10 00:00 2012", "*/15 * * * *", "Tue Jul 9 23:45 2012"},
+		{"Mon Jul 10 00:09:55 2012", "*/15 * * * *", "Tue Jul 10 00:00 2012"},
+
+		// 2am nightly job
+		{"2012-11-04T00:00:00-0500", "TZ=America/New_York 0 0 2 * * ?", "2012-11-03T02:00:00-0400"},
+		{"2012-11-05T02:00:00-0500", "TZ=America/New_York 0 0 2 * * ?", "2012-11-04T02:00:00-0500"},
+
+		// Wrap around months
+		{"Mon Aug 8 23:35 2012", "0 0 0 9 Apr-Oct ?", "Thu Jul 9 00:00 2012"},
+		{"Mon Jul 9 23:35 2012", "0 0 0 */5 Apr,Aug,Oct Mon", "Mon Apr 16 00:00 2012"},
+		{"Mon Dec 9 23:35 2012", "0 0 0 */5 Oct Mon", "Mon Oct 1 00:00 2012"},
+
+		// Wrap around years
+		{"Mon Feb 1 23:35 2013", "0 0 * Feb Mon", "Mon Feb 27 00:00 2012"},
+		{"Mon Jan 29 23:35 2013", "0 0 * Feb Mon/2", "Fri Feb 29 00:00 2012"},
+
+		// Builtin
+		{"Mon Feb 1 23:35 2013", "@hourly", "Mon Feb 1 23:00 2013"},
+		{"Mon Feb 1 23:35 2013", "@daily", "Mon Feb 1 00:00 2013"},
+		{"Mon Feb 1 23:35 2013", "@weekly", "Mon Jan 27 00:00 2013"},
+	}
+
+	for _, c := range runs {
+		sched, err := Parse(c.spec)
+		if err != nil {
+			t.Error(err)
+			continue
+		}
+		actual := sched.Previous(getTime(c.time))
+		expected := getTime(c.expected)
+		if !actual.Equal(expected) {
+			t.Errorf("%s, \"%s\": (expected) %v != %v (actual)", c.time, c.spec, expected, actual)
+		}
+	}
+}
+
 func TestErrors(t *testing.T) {
 	invalidSpecs := []string{
 		"xyz",
